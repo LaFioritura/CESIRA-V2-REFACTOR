@@ -1,4 +1,6 @@
 import React,{useCallback,useEffect,useRef,useState}from'react';
+import { playKickVoice, playSnareVoice, playHatVoice } from '../audio/drumVoices';
+import { usePresetManager } from '../hooks/usePresetManager';
 import {
   MAX_STEPS,PAGE,SCHED,LOOK,UNDO,clamp,rnd,pick,lerp,GENRES,GENRE_NAMES,MODES,CHORD_PROGS,SECTIONS,SONG_ARCS,GROOVE_MAPS,NOTE_FREQ,NOTE_MIDI,CHROMA,parseNoteName,transposeNote,mkSteps,mkNotes,chordNotes,voiceLead,arp,velCurve,buildMelodicLine,buildSection,buildSong,grooveAccent,LANE_CLR,GENRE_CLR,SOUND_PRESETS
 } from '../engine/musicEngine';
@@ -79,6 +81,7 @@ export default function App(){
   const [synthPreset,setSynthPreset]=useState('velvet_pad');
   const [drumPreset,setDrumPreset]=useState('tight_punch');
   const [performancePreset,setPerformancePreset]=useState('club_night');
+  const currentDrumPreset=SOUND_PRESETS.drum[drumPreset]||SOUND_PRESETS.drum.tight_punch;
 
   // ── Autopilot
   const [autopilot,setAutopilot]=useState(false);
@@ -218,49 +221,60 @@ export default function App(){
   // ─── DRUM SYNTHESIS ────────────────────────────────────────────────────────
   const playKick=(accent,t)=>{
     if(!nodeGuard())return;
-    const a=audioRef.current;const gd=GENRES[genre];
-    const kf=gd.kickFreq||90,ke=gd.kickEnd||35,et=0.08+drumDecay*0.12,dt=0.16+drumDecay*0.22;
-    const body=a.ctx.createOscillator(),bG=a.ctx.createGain();
-    const sub=a.ctx.createOscillator(),sG=a.ctx.createGain();
-    const click=a.ctx.createBufferSource(),cG=a.ctx.createGain();
-    const mG=a.ctx.createGain(),sh=a.ctx.createWaveShaper();
-    body.type='sine';body.frequency.setValueAtTime(kf,t);body.frequency.exponentialRampToValueAtTime(Math.max(20,ke),t+et);
-    sub.type='sine';sub.frequency.setValueAtTime(kf*0.5,t);sub.frequency.exponentialRampToValueAtTime(Math.max(18,ke*0.5),t+et);
-    const cb=a.ctx.createBuffer(1,Math.floor(a.ctx.sampleRate*0.004),a.ctx.sampleRate);
-    const cd=cb.getChannelData(0);for(let i=0;i<cd.length;i++)cd[i]=rnd()*2-1;
-    click.buffer=cb;driveCurve(sh,0.05+noiseMix*0.08);
-    bG.gain.setValueAtTime(0,t);bG.gain.linearRampToValueAtTime(0.82*accent,t+0.001);bG.gain.exponentialRampToValueAtTime(0.001,t+dt);
-    sG.gain.setValueAtTime(0,t);sG.gain.linearRampToValueAtTime(0.5*accent*bassSubAmt,t+0.001);sG.gain.exponentialRampToValueAtTime(0.001,t+dt*1.2);
-    cG.gain.setValueAtTime(0,t);cG.gain.linearRampToValueAtTime(0.3*accent,t+0.0005);cG.gain.exponentialRampToValueAtTime(0.001,t+0.006);
-    body.connect(sh);sh.connect(bG);sub.connect(sG);click.connect(cG);
-    bG.connect(mG);sG.connect(mG);cG.connect(mG);
-    const dest=getLaneGain('kick')||a.bus;mG.connect(dest);
-    const dur=(dt+0.1)*1000+200;trackNode(dur);
-    gc(body,[sub,click,bG,sG,cG,mG,sh],dur);
-    ss(body,t);ss(sub,t);ss(click,t);st(body,t+dt+0.05);st(sub,t+dt+0.08);st(click,t+0.008);
+    playKickVoice({
+      audioRef,
+      getLaneGain,
+      trackNode,
+      gc,
+      ss,
+      st,
+      driveCurve,
+      genreConfig:GENRES[genre],
+      drumPreset:currentDrumPreset,
+      noiseMix,
+      drumDecay,
+      bassSubAmt,
+      accent,
+      time:t,
+    });
   };
 
   const playSnare=(accent,t)=>{
     if(!nodeGuard())return;
-    const a=audioRef.current;const gd=GENRES[genre];
-    const nb=noiseBuffer(0.18,0.24+noiseMix*0.5,gd.noiseColor||'white');
-    const src=a.ctx.createBufferSource(),fil=a.ctx.createBiquadFilter(),g=a.ctx.createGain();
-    src.buffer=nb;fil.type='bandpass';fil.frequency.value=1600+noiseMix*400;fil.Q.value=1.0+compress*0.4;
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.55*accent,t+0.002);g.gain.exponentialRampToValueAtTime(0.001,t+0.055+drumDecay*0.12);
-    src.connect(fil);fil.connect(g);const dest=getLaneGain('snare')||a.bus;g.connect(dest);
-    gc(src,[fil,g],400);ss(src,t);st(src,t+0.2);
+    playSnareVoice({
+      audioRef,
+      getLaneGain,
+      noiseBuffer,
+      gc,
+      ss,
+      st,
+      genreConfig:GENRES[genre],
+      drumPreset:currentDrumPreset,
+      noiseMix,
+      compress,
+      drumDecay,
+      accent,
+      time:t,
+    });
   };
 
   const playHat=(accent,t,open=false)=>{
     if(!nodeGuard())return;
-    const a=audioRef.current;const gd=GENRES[genre];
-    const nb=noiseBuffer(open?0.3:0.12,0.18+noiseMix*0.35,gd.noiseColor||'white');
-    const src=a.ctx.createBufferSource(),fil=a.ctx.createBiquadFilter(),g=a.ctx.createGain();
-    src.buffer=nb;fil.type='highpass';fil.frequency.value=open?7000:8500;
-    const decay=open?0.08+drumDecay*0.25:0.008+drumDecay*0.04;
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.3*accent,t+0.001);g.gain.exponentialRampToValueAtTime(0.001,t+decay);
-    src.connect(fil);fil.connect(g);const dest=getLaneGain('hat')||a.bus;g.connect(dest);
-    gc(src,[fil,g],600);ss(src,t);st(src,t+open?0.35:0.15);
+    playHatVoice({
+      audioRef,
+      getLaneGain,
+      noiseBuffer,
+      gc,
+      ss,
+      st,
+      genreConfig:GENRES[genre],
+      drumPreset:currentDrumPreset,
+      noiseMix,
+      drumDecay,
+      accent,
+      time:t,
+      open,
+    });
   };
 
 
@@ -797,61 +811,37 @@ export default function App(){
     });
   };
 
-  const applyPartialPreset=(preset)=>{
-    if(!preset)return;
-    if(preset.genre&&preset.genre!==genre)newGenreSession(preset.genre);
-    if(preset.bassMode){
-      const next={...GENRES[genre],bassMode:preset.bassMode};
-      GENRES[genre]=next;
-    }
-    if(preset.synthMode){
-      const next={...GENRES[genre],synthMode:preset.synthMode};
-      GENRES[genre]=next;
-    }
-    if(preset.space!==undefined)setSpace(preset.space);
-    if(preset.tone!==undefined)setTone(preset.tone);
-    if(preset.drive!==undefined)setDrive(preset.drive);
-    if(preset.compress!==undefined)setCompress(preset.compress);
-    if(preset.noiseMix!==undefined)setNoiseMix(preset.noiseMix);
-    if(preset.drumDecay!==undefined)setDrumDecay(preset.drumDecay);
-    if(preset.bassFilter!==undefined)setBassFilter(preset.bassFilter);
-    if(preset.synthFilter!==undefined)setSynthFilter(preset.synthFilter);
-    if(preset.bassSubAmt!==undefined)setBassSubAmt(preset.bassSubAmt);
-    if(preset.fmIdx!==undefined){setFmIdx(preset.fmIdx);fmIdxRef.current=preset.fmIdx;}
-    if(preset.polySynth!==undefined)setPolySynth(preset.polySynth);
-    if(preset.bassStack!==undefined)setBassStack(preset.bassStack);
-    if(preset.grooveAmt!==undefined){setGrooveAmt(preset.grooveAmt);grooveRef.current=preset.grooveAmt;}
-    if(preset.swing!==undefined){setSwing(preset.swing);swingRef.current=preset.swing;}
-  };
-
-  const applyBassPreset=(key)=>{
-    const preset=SOUND_PRESETS.bass[key];
-    if(!preset)return;
-    setBassPreset(key);
-    applyPartialPreset({...preset});
-    setStatus(`Bass preset — ${preset.label}`);
-  };
-  const applySynthPreset=(key)=>{
-    const preset=SOUND_PRESETS.synth[key];
-    if(!preset)return;
-    setSynthPreset(key);
-    applyPartialPreset({...preset});
-    setStatus(`Synth preset — ${preset.label}`);
-  };
-  const applyDrumPreset=(key)=>{
-    const preset=SOUND_PRESETS.drum[key];
-    if(!preset)return;
-    setDrumPreset(key);
-    applyPartialPreset({...preset});
-    setStatus(`Drum preset — ${preset.label}`);
-  };
-  const applyPerformancePreset=(key)=>{
-    const preset=SOUND_PRESETS.performance[key];
-    if(!preset)return;
-    setPerformancePreset(key);
-    applyPartialPreset({...preset});
-    setStatus(`Performance preset — ${preset.label}`);
-  };
+  const {
+    applyBassPreset,
+    applySynthPreset,
+    applyDrumPreset,
+    applyPerformancePreset,
+  }=usePresetManager({
+    genre,
+    newGenreSession,
+    setSpace,
+    setTone,
+    setDrive,
+    setCompress,
+    setNoiseMix,
+    setDrumDecay,
+    setBassFilter,
+    setSynthFilter,
+    setBassSubAmt,
+    setFmIdx,
+    fmIdxRef,
+    setPolySynth,
+    setBassStack,
+    setGrooveAmt,
+    grooveRef,
+    setSwing,
+    swingRef,
+    setStatus,
+    setBassPreset,
+    setSynthPreset,
+    setDrumPreset,
+    setPerformancePreset,
+  });
 
   const clearPattern=()=>{
     pushUndo();

@@ -1,22 +1,16 @@
-# CESIRA V2 Refactor
+# CESIRA V2 Refactor Pro
 
-Vite + React project cleaned for Vercel deployment.
+This package is ready for GitHub and Vercel.
 
-## Run locally
+Included in this revision:
+- expanded drum preset system with more kick/snare/hat personalities
+- drum synthesis extracted into `src/audio/drumVoices.js`
+- preset application extracted into `src/hooks/usePresetManager.js`
+- cleaner build-ready project without `node_modules` or `dist`
+
+Run locally:
 
 ```bash
 npm install
 npm run dev
 ```
-
-## Production build
-
-```bash
-npm run build
-```
-
-## Notes
-
-- Do not commit `node_modules/`
-- Do not commit `dist/`
-- Vercel will install dependencies automatically
