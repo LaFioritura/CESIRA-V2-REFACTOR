@@ -273,8 +273,6 @@ export function useAudioEngine({
     fil.type = 'bandpass'; fil.frequency.value = 1600 + noiseMix * 400; fil.Q.value = 1.0 + compress * 0.4;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.55 * accent, t + 0.002); g.gain.exponentialRampToValueAtTime(0.001, t + 0.055 + drumDecay * 0.12);
     src.connect(fil); fil.connect(g);
-    (getLaneGain('snare') ?? a.bus).connect && g.connect(getLaneGain('snare') ?? a.bus);
-    // simplified routing
     const dest = getLaneGain('snare') ?? a.bus; g.connect(dest);
     autoGC(src, [fil, g], 400); safeStart(src, t); safeStop(src, t + 0.2);
   };

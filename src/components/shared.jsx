@@ -1,9 +1,10 @@
 /**
- * shared.jsx — reusable micro-components used across views.
+ * shared.jsx — reusable micro-components.
+ * All style objects come from ui.js — no inline style literals here.
  */
 
 import React from 'react';
-import { MONO, DIM, navBtnStyle } from './ui.js';
+import { NAV_BTN, DIM, MONO } from './ui.js';
 
 // ── PresetSelect ──────────────────────────────────────────────────────────────
 export function PresetSelect({ label, value, options, onChange, accent = '#ffffff' }) {
@@ -37,14 +38,16 @@ export function PresetSelect({ label, value, options, onChange, accent = '#fffff
 }
 
 // ── Fader — labelled range slider ─────────────────────────────────────────────
+const faderRowStyle  = { display: 'flex', flexDirection: 'column', gap: 1 };
+const faderLabelRow  = { display: 'flex', justifyContent: 'space-between' };
+const faderLabelText = { fontSize: 10, letterSpacing: '0.08em', color: DIM, textTransform: 'uppercase' };
+
 export function Fader({ label, value, setter, color = '#ffffff', min = 0, max = 1, step }) {
   const pct = ((value - min) / (max - min) * 100).toFixed(0);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 10, letterSpacing: '0.08em', color: DIM, textTransform: 'uppercase' }}>
-          {label}
-        </span>
+    <div style={faderRowStyle}>
+      <div style={faderLabelRow}>
+        <span style={faderLabelText}>{label}</span>
         <span style={{ fontSize: 10, color, fontFamily: MONO }}>{pct}</span>
       </div>
       <input
@@ -59,29 +62,31 @@ export function Fader({ label, value, setter, color = '#ffffff', min = 0, max = 
   );
 }
 
-// ── NavPager — page ‹ N/4 › navigation ───────────────────────────────────────
+// ── NavPager ──────────────────────────────────────────────────────────────────
 export function NavPager({ page, setPage, total = 4 }) {
   return (
     <>
       <button
         onClick={() => setPage(p => Math.max(0, p - 1))}
         disabled={page === 0}
-        style={{ ...navBtnStyle, opacity: page === 0 ? 0.3 : 1, padding: '1px 5px', fontSize: 10 }}
+        style={{ ...NAV_BTN, opacity: page === 0 ? 0.3 : 1, padding: '1px 5px', fontSize: 10 }}
       >‹</button>
       <span style={{ fontSize: 10, color: DIM, fontFamily: MONO }}>{page + 1}/{total}</span>
       <button
         onClick={() => setPage(p => Math.min(total - 1, p + 1))}
         disabled={page === total - 1}
-        style={{ ...navBtnStyle, opacity: page === total - 1 ? 0.3 : 1, padding: '1px 5px', fontSize: 10 }}
+        style={{ ...NAV_BTN, opacity: page === total - 1 ? 0.3 : 1, padding: '1px 5px', fontSize: 10 }}
       >›</button>
     </>
   );
 }
 
 // ── VuBar ─────────────────────────────────────────────────────────────────────
+const vuTrackStyle = { borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' };
+
 export function VuBar({ value, color, height = 3 }) {
   return (
-    <div style={{ height, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+    <div style={{ ...vuTrackStyle, height }}>
       <div style={{
         height: '100%',
         width: `${value * 100}%`,
